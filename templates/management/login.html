@@ -1,0 +1,40 @@
+{% extends 'management/base.html' %}
+{% block title %}Staff & Admin Login - QuickStay{% endblock %}
+{% block content %}
+<div class="login card" style="max-width: 440px; margin: 8vh auto; padding: 36px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); background: #ffffff; border: 1px solid #e2e8f0;">
+  <div style="text-align: center; margin-bottom: 28px;">
+    <p class="brand" style="font-size: 28px; margin: 0 0 8px;">Quick<span style="color: #2563eb;">Stay</span></p>
+    <h1 style="font-size: 22px; margin: 0 0 6px; color: #1e293b;">Staff & Admin Portal</h1>
+    <p class="muted" style="font-size: 13px; margin: 0; color: #64748b;">Sign in with your administrator or hotel staff credentials.</p>
+  </div>
+
+  {% if error %}
+    <div style="background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; padding: 12px 16px; border-radius: 10px; font-size: 13px; margin-bottom: 20px;">
+      {{ error }}
+    </div>
+  {% endif %}
+
+  <form method="post" action="{% url 'management-login' %}" style="display: flex; flex-direction: column; gap: 18px;">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.GET.next|default:'/manage/' }}">
+    
+    <div class="form-row" style="margin: 0;">
+      <label for="id_username" style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Username</label>
+      <input type="text" name="username" id="id_username" value="{{ request.POST.username|default:'' }}" required autofocus style="width: 100%; border: 1px solid #cbd5e1; border-radius: 10px; padding: 11px 14px; font-size: 14px; outline: none; transition: border-color 0.2s;" placeholder="Enter your username">
+    </div>
+
+    <div class="form-row" style="margin: 0;">
+      <label for="id_password" style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Password</label>
+      <input type="password" name="password" id="id_password" value="" required style="width: 100%; border: 1px solid #cbd5e1; border-radius: 10px; padding: 11px 14px; font-size: 14px; outline: none; transition: border-color 0.2s;" placeholder="Enter your password">
+    </div>
+
+    <button class="button" type="submit" style="width: 100%; background: #0f172a; color: #ffffff; border: none; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: background 0.2s;">
+      Sign in to Dashboard
+    </button>
+  </form>
+
+  <div style="margin-top: 24px; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+    <a href="/admin/" style="font-size: 12px; color: #64748b; text-decoration: none;">Looking for Django Database Admin? Click here →</a>
+  </div>
+</div>
+{% endblock %}

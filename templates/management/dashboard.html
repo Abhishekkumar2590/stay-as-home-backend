@@ -1,0 +1,191 @@
+{% extends 'management/base.html' %}{% block content %}<div class="top"><div><h1>Management overview</h1><p class="muted">Maintain your hotels, rooms, photos, and bookings.</p></div><div><a class="button secondary" href="{% url 'hotel-create' %}">+ Hotel</a> <a class="button" href="{% url 'room-create' %}">+ Room</a></div></div><div class="cards"><div class="card"><span class="muted">Hotels</span><div class="metric">{{ hotel_count }}</div></div><div class="card"><span class="muted">Rooms</span><div class="metric">{{ room_count }}</div></div><div class="card"><span class="muted">Bookings</span><div class="metric">{{ booking_count }}</div></div></div><section class="panel"><h2>Rooms and photos</h2><table class="table"><tr><th>Room</th><th>Hotel</th><th>Price</th><th>Photos</th><th></th></tr>{% for room in rooms %}<tr><td>{{ room.get_room_type_display }}</td><td>{{ room.hotel.name }}</td><td>${{ room.price_per_night }}</td><td>{{ room.photo_count }}</td><td><a class="button secondary" href="{% url 'room-photos' room.id %}">Manage photos</a></td></tr>{% empty %}<tr><td colspan="5">No rooms yet.</td></tr>{% endfor %}</table></section><section class="panel"><h2>Recent bookings</h2><table class="table"><tr><th>Guest</th><th>Room</th><th>Dates</th><th>Status</th></tr>{% for booking in recent_bookings %}<tr><td>{{ booking.guest_name }}<br><span class="muted">{{ booking.guest_email }}</span></td><td>{{ booking.room.hotel.name }}</td><td>{{ booking.check_in }} → {{ booking.check_out }}</td><td>{{ booking.get_status_display }}</td></tr>{% empty %}<tr><td colspan="4">No bookings yet.</td></tr>{% endfor %}</table></section>{% endblock %}
+{% extends 'management/base.html' %}
+{% block content %}
+<div class="top">
+    <div>
+        <h1>Management overview</h1>
+        <p class="muted">Maintain your hotels, rooms, photos, bookings, and Kafka streaming pipeline.</p>
+    </div>
+    <div>
+        <a class="button secondary" href="{% url 'hotel-create' %}">+ Hotel</a>
+        <a class="button" href="{% url 'room-create' %}">+ Room</a>
+    </div>
+</div>
+
+<div class="cards">
+    <div class="card">
+        <span class="muted">Hotels</span>
+        <div class="metric">{{ hotel_count }}</div>
+    </div>
+    <div class="card">
+        <span class="muted">Rooms</span>
+        <div class="metric">{{ room_count }}</div>
+    </div>
+    <div class="card">
+        <span class="muted">Bookings</span>
+        <div class="metric">{{ booking_count }}</div>
+    </div>
+    <div class="card">
+        <span class="muted">Kafka Events Published</span>
+        <div class="metric" id="kafkaTotalPublished">{{ kafka_status.metrics.total_published }}</div>
+    </div>
+</div>
+
+<!-- Apache Kafka Event Streaming Monitor -->
+<section class="panel" style="margin-top: 24px; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; background: #ffffff;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+        <div>
+            <h2 style="margin: 0; font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                <span>⚡ Apache Kafka Streaming Pipeline</span>
+                <span style="font-size: 0.75rem; padding: 3px 10px; border-radius: 20px; font-weight: 600; {% if kafka_status.connected %}background: #dcfce7; color: #15803d;{% else %}background: #fef3c7; color: #b45309;{% endif %}">
+                    {% if kafka_status.connected %}● Live Broker ({{ kafka_status.bootstrap_servers }}){% else %}● In-Memory Event Streaming Buffer{% endif %}
+                </span>
+            </h2>
+            <p class="muted" style="margin: 4px 0 0 0; font-size: 0.85rem;">
+                Consumer Group: <code>{{ kafka_status.consumer_group }}</code> | Client ID: <code>{{ kafka_status.client_id }}</code>
+            </p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <button type="button" class="button secondary" onclick="publishKafkaTestEvent()" style="cursor: pointer;">
+                🚀 Publish Test Event
+            </button>
+            <button type="button" class="button secondary" onclick="clearKafkaLogs()" style="cursor: pointer;">
+                🧹 Clear Log
+            </button>
+        </div>
+    </div>
+
+    <!-- Topic Badges -->
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+        {% for topic in kafka_status.topics %}
+        <span style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 10px; font-size: 0.8rem; font-family: monospace;">
+            📁 <strong>{{ topic }}</strong>
+        </span>
+        {% endfor %}
+    </div>
+
+    <!-- Recent Event Stream Table -->
+    <h3 style="font-size: 1rem; margin-bottom: 8px; color: #334155;">Live Event Stream (Latest {{ kafka_status.recent_events_count }} events)</h3>
+    <table class="table" style="width: 100%; font-size: 0.85rem;">
+        <thead>
+            <tr style="background: #f8fafc; text-align: left;">
+                <th style="padding: 8px;">Timestamp</th>
+                <th style="padding: 8px;">Topic</th>
+                <th style="padding: 8px;">Event Type</th>
+                <th style="padding: 8px;">Event Payload</th>
+            </tr>
+        </thead>
+        <tbody id="kafkaEventsTableBody">
+            {% for evt in kafka_status.recent_events %}
+            <tr>
+                <td style="white-space: nowrap; font-family: monospace; font-size: 0.75rem; color: #64748b;">
+                    {{ evt.timestamp }}
+                </td>
+                <td>
+                    <span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-family: monospace;">
+                        {{ evt.topic }}
+                    </span>
+                </td>
+                <td>
+                    <span style="font-weight: 600; color: #1e293b;">
+                        {{ evt.event_type }}
+                    </span>
+                </td>
+                <td style="font-family: monospace; font-size: 0.75rem; color: #334155; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{ evt.payload }}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" style="text-align: center; color: #94a3b8; padding: 16px;">
+                    No events published yet. Click "Publish Test Event" or create a booking to stream events.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+<section class="panel" style="margin-top: 24px;">
+    <h2>Rooms and photos</h2>
+    <table class="table">
+        <tr>
+            <th>Room</th>
+            <th>Hotel</th>
+            <th>Price</th>
+            <th>Photos</th>
+            <th></th>
+        </tr>
+        {% for room in rooms %}
+        <tr>
+            <td>{{ room.get_room_type_display }}</td>
+            <td>{{ room.hotel.name }}</td>
+            <td>${{ room.price_per_night }}</td>
+            <td>{{ room.photo_count }}</td>
+            <td><a class="button secondary" href="{% url 'room-photos' room.id %}">Manage photos</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5">No rooms yet.</td></tr>
+        {% endfor %}
+    </table>
+</section>
+
+<section class="panel" style="margin-top: 24px;">
+    <h2>Recent bookings</h2>
+    <table class="table">
+        <tr>
+            <th>Guest</th>
+            <th>Room</th>
+            <th>Dates</th>
+            <th>Status</th>
+        </tr>
+        {% for booking in recent_bookings %}
+        <tr>
+            <td>{{ booking.guest_name }}<br><span class="muted">{{ booking.guest_email }}</span></td>
+            <td>{{ booking.room.hotel.name }}</td>
+            <td>{{ booking.check_in }} → {{ booking.check_out }}</td>
+            <td>{{ booking.get_status_display }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4">No bookings yet.</td></tr>
+        {% endfor %}
+    </table>
+</section>
+
+<script>
+async function publishKafkaTestEvent() {
+    try {
+        const res = await fetch('/api/kafka/publish-test/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                topic: 'hotel.notifications',
+                event_type: 'SYSTEM_TEST_EVENT',
+                message: 'Manual test event triggered from Management Dashboard'
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert('✅ Event published to Kafka topic hotel.notifications successfully!');
+            window.location.reload();
+        }
+    } catch (err) {
+        alert('Error publishing Kafka test event: ' + err.message);
+    }
+}
+
+async function clearKafkaLogs() {
+    if (!confirm('Clear recent Kafka event stream log?')) return;
+    try {
+        await fetch('/api/kafka/status/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'clear' })
+        });
+        window.location.reload();
+    } catch (err) {
+        alert('Error clearing event logs: ' + err.message);
+    }
+}
+</script>
+{% endblock %}
