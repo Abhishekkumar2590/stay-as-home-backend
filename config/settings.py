@@ -121,27 +121,34 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 CORS_ALLOW_ALL_ORIGINS = get_bool_env('CORS_ALLOW_ALL_ORIGINS', 'True')
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = ['*']
 CORS_ALLOWED_ORIGINS = get_csv_env(
     'CORS_ALLOWED_ORIGINS',
-    'http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174',
+    'http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174,https://*.vercel.app,https://*.onrender.com,https://*.railway.app,https://*.koyeb.app',
 )
 
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:8000',
-]
+DEFAULT_CSRF_TRUSTED = (
+    'http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:8000,'
+    'https://*.onrender.com,https://*.railway.app,https://*.koyeb.app,https://*.vercel.app'
+)
+CSRF_TRUSTED_ORIGINS = get_csv_env('CSRF_TRUSTED_ORIGINS', DEFAULT_CSRF_TRUSTED)
 
 FRONTEND_URL = os.getenv('FRONTEND_URL', DEFAULT_FRONTEND_URL)
+if FRONTEND_URL and FRONTEND_URL.startswith(('http://', 'https://')):
+    clean_fe = FRONTEND_URL.rstrip('/')
+    if clean_fe not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(clean_fe)
+    if clean_fe not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(clean_fe)
 
 CACHES = {
     "default": {
